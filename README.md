@@ -28,37 +28,39 @@ Then pat a kitten :kitten:
 ```ruby
 require 'jruby_bridge'
 
-class TerrorAdapter # Yay java tech
-  def exec(query, patches = {}, &block)
-    # This is executed in JRuby
-    results = JavaTechnologyQueryFactoryFactory.new(stuff).dance
-    results.each &block
-  end
-end
+# Start the JRuby service process
+JRubyBridge::Service.with_service do
 
-def query_the_terror(keyword)
-  # bridge your object of choice
-  adapter = JRubyBridge.launch TerrorAdapter.new
+  # Now, every new SomeClass lives remotely
+  SomeClass.send :include, JRubyBridge::ObjectProxy
 
-  # Methods are executed in the remote JRuby VM
-  adapter.exec(keyword, 'Tuttle' => 'Buttle') do |row|
-    # Procs are executed in the local Ruby VM
-    name = row[:name].gsub('Tuttle', 'Buttle')
-    puts "Terrorist detected: #{name}" if terrorist? name
-  end
-ensure
-  adapter.jruby_bridge.close
-end
+  # Make a remote object
+  remote_object = SomeClass.new 'some', 'args'
 
-def terrorist?(name)
-  [true, true, false].sample # FIXME 2001
-end
+  # executes in the JRuby process
+  new_object = remote_object.do_stuff
+
+  # also in the JRuby process (pass by ref)
+  new_object.do_more_stuff
+
+  # lambdas are executed in this process
+  new_object.each { |thing| process thing }
+
+end # Stop the JRuby service process
+```
+
+```ruby
+# You can also control the service manually
+JRubyBridge::Service.start
+JRubyBridge::Service.stop
 ```
 
 ## TODO
 
 1. Ahh, some tests?
 2. Convince the Enterprise to stop using commercial databases
+3. Lazy-launching of the service process
+4. Timeouts on the service process?
 
 ## Contributing
 
