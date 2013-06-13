@@ -18,24 +18,67 @@ A Ruby-managed JRuby application.
     # Path to JRuby application
     DAEMON = File.join(File.dirname(__FILE__), 'server.rb')
     # Port to listen on in JRuby
-    DEFAULT_PORT = 44344
+    PORT = 44344
     # Time to allow JRuby to initialize, in 100-ms increments
     TIMEOUT = 300
 
-    # Number of clients connected to Service
-    attr_reader :usage_count
-
-    def initialize
-      @usage_count = 0
+    def proxy_new(klass, *args)
+      klass.new *args
     end
 
-    # sure, this could probably use a mutex
-    def inc_usage; @usage_count += 1; end
-    def dec_usage; @usage_count -= 1; end
-    def stop_if_unused; DRb.stop_service if (usage_count <= 0); end
+    def stop
+      DRb.stop_service
+    end
 
+    def self.with_service(&block)
+      start
+      yield
+    ensure
+      stop
+    end
+
+    def self.start
+      return @pid if @pid
+      cls = self
+      @pid = Process.fork do
+        exit(cls.exec PORT)
+      end
+      # TODO : check child exit status and raise JRubyExecError
+      Process.detach(@pid)
+
+      connected = false
+      TIMEOUT.times do
+        begin
+          DRb::DRbObject.new_with_uri(default_uri).to_s
+          connected = true
+          break
+        rescue DRb::DRbConnError
+          sleep 0.1
+        end
+      end
+      raise DRbConnectionError.new("Could not connect to #{default_uri}") if \
+            (! connected)
+    end
+
+    def self.stop
+      service_send :stop
+    end
+
+    # Replace current process with JRuby running JRubyBridge::Service
+    def self.exec(port)
+      jruby = get_jruby
+      command = "#{jruby} #{DAEMON} #{port || ''}"
+      puts "Running #{command}"
+      Kernel.exec command if jruby
+
+      # Note: a raised exception goes nowhere: instead use exit status
+      $stderr.puts "No JRUBY found!"
+      return 1
+    end
+
+    # Called by the server script in JRuby context
     def self.drb_start(port)
-      port ||= default_port
+      port ||= PORT
 
       DRb.start_service "druby://localhost:#{port.to_i}", self.new
 
@@ -46,16 +89,9 @@ A Ruby-managed JRuby application.
       DRb.thread.join
     end
 
-    # derived classes can override this method to change the daemon
-    def self.daemon; DAEMON; end
-
-    # derived classes can override this method to change the timeout
-    def self.timeout; TIMEOUT; end
-
-    # derived classes can override this method to change the port
-    def self.default_port; DEFAULT_PORT; end
-
-    def self.default_uri; "druby://localhost:#{default_port}"; end
+    def self.default_uri
+      "druby://localhost:#{PORT}"
+    end
 
     # Return command to launch JRuby interpreter
     def self.get_jruby
@@ -73,61 +109,18 @@ A Ruby-managed JRuby application.
       "rvm #{jruby.strip.split(' ').first} do ruby "
     end
 
-    # Replace current process with JRuby running JRubyBridge::Service
-    def self.exec(port)
-      jruby = get_jruby
-      Kernel.exec "#{jruby} #{daemon} #{port || ''}" if jruby
-
-      # Note: a raised exception goes nowhere: instead use exit status
-      $stderr.puts "No JRUBY found!"
-      return 1
-    end
-
-    def self.start
-      return @pid if @pid
-      cls = self
-      @pid = Process.fork do
-        exit(cls.exec cls.default_port)
-      end
-      # TODO : check child exit status and raise JRubyExecError
-      Process.detach(@pid)
-
-      connected = false
-      timeout.times do
-        begin
-          DRb::DRbObject.new_with_uri(default_uri).to_s
-          connected = true
-          break
-        rescue DRb::DRbConnError
-          sleep 0.1
-        end
-      end
-      raise DRbConnectionError.new("Could not connect to #{default_uri}") if \
-            (! connected)
-    end
-
-    def self.stop
-      service_send(:stop_if_unused)
-    end
-
     # this will return a new DRuby connection
     def self.service_send(method, *args)
       begin
-        obj = DRb::DRbObject.new_with_uri(default_uri)
-        obj.send(method, *args)
-        obj
+        new_drb_object.tap { |obj| obj.send(method, *args) }
       rescue DRb::DRbConnError => e
         # $stderr.puts e.backtrace.join("\n")
         raise DRbConnectionError.new(e.message)
       end
     end
 
-    def self.connect
-      service_send(:inc_usage)
-    end
-
-    def self.disconnect
-      service_send(:dec_usage)
+    def self.new_drb_object
+      DRb::DRbObject.new_with_uri(default_uri)
     end
 
   end
