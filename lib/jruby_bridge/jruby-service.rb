@@ -94,7 +94,7 @@ A Ruby-managed JRuby application.
         obj
       rescue DRb::DRbConnError => e
         # $stderr.puts e.backtrace.join("\n")
-        raise DRbConnectionError.new(e.message) 
+        raise DRbConnectionError.new(e.message)
       end
     end
 
