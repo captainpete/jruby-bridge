@@ -16,11 +16,35 @@ A Ruby-managed JRuby application.
 =end
   class Service
     # Path to JRuby application
-    DAEMON = File.join(File.dirname(__FILE__), 'jruby-service-jruby-app.rb')
+    DAEMON = File.join(File.dirname(__FILE__), 'server.rb')
     # Port to listen on in JRuby
     DEFAULT_PORT = 44344
     # Time to allow JRuby to initialize, in 100-ms increments
     TIMEOUT = 300
+
+    # Number of clients connected to Service
+    attr_reader :usage_count
+
+    def initialize
+      @usage_count = 0
+    end
+
+    # sure, this could probably use a mutex
+    def inc_usage; @usage_count += 1; end
+    def dec_usage; @usage_count -= 1; end
+    def stop_if_unused; DRb.stop_service if (usage_count <= 0); end
+
+    def self.drb_start(port)
+      port ||= default_port
+
+      DRb.start_service "druby://localhost:#{port.to_i}", self.new
+
+      cls = self
+      trap('HUP') { DRb.stop_service; cls.drb_start(port) }
+      trap('INT') { puts 'Stopping jruby service'; DRb.stop_service }
+
+      DRb.thread.join
+    end
 
     # derived classes can override this method to change the daemon
     def self.daemon; DAEMON; end
