@@ -21,7 +21,7 @@ Or install it yourself as:
 
     $ gem install jruby_bridge
 
-Then pat a kitten :kitten:
+Then pat a kitten :tiger:
 
 ## Usage by Example
 
