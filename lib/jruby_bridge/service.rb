@@ -55,8 +55,9 @@ A Ruby-managed JRuby application.
           sleep 0.1
         end
       end
-      raise DRbConnectionError.new("Could not connect to #{default_uri}") if \
-            (! connected)
+      unless connected
+        raise "Could not connect to #{default_uri}"
+      end
     end
 
     def self.stop
