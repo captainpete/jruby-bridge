@@ -28,6 +28,17 @@ Then pat a kitten :tiger:
 ```ruby
 require 'jruby_bridge'
 
+# Make sure JRuby has the right classes loaded
+JRubyBridge::Service.remote_require 'kittens', 'puppies'
+
+# Or, if you've got a Rails stack you want loaded, you could use the
+# following code in an initializer to make sure JRuby has access to all
+# your classes.
+#
+# # config/initializers/jruby_bridge.rb
+# JRubyBridge::Service.remote_require File.dirname(__FILE__) + '/../environment'
+
+
 # Start the JRuby service process
 JRubyBridge::Service.with_service do
 

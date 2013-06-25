@@ -10,14 +10,18 @@ new instances to reside on the JRuby DRb service.
 
     def self.included(base)
       base.class_eval do
+
         include DRb::DRbUndumped
 
-        def self.new(*args)
-          service = Service.new_drb_object
-          service.proxy_new(self, *args)
+        class << self
+          alias :proxied_new :new
+          def new(*args)
+            Service.new_drb_object.remote_proxied_new self, *args
+          end
         end
-      end
-    end
+
+      end # base.class_eval
+    end # self.included
 
   end
 end

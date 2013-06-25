@@ -8,9 +8,6 @@ DRuby to communicate between them.
 =end
 module JRubyBridge
 
-  class JRubyExecError < StandardError; end
-  class DRbConnectionError < StandardError; end
-
 =begin rdoc
 A Ruby-managed JRuby application.
 =end
@@ -22,12 +19,14 @@ A Ruby-managed JRuby application.
     # Time to allow JRuby to initialize, in 100-ms increments
     TIMEOUT = 300
 
-    def proxy_new(klass, *args)
-      klass.new *args
+    # Objects created from within this instance
+    # reside in the JRuby process
+    def remote_proxied_new(klass, *args)
+      klass.proxied_new *args
     end
 
-    def stop
-      DRb.stop_service
+    def self.remote_require(*args)
+      @remote_requires = args
     end
 
     def self.with_service(&block)
@@ -39,9 +38,9 @@ A Ruby-managed JRuby application.
 
     def self.start
       return @pid if @pid
-      cls = self
+      _self = self
       @pid = Process.fork do
-        exit(cls.exec PORT)
+        exit _self.exec(PORT)
       end
       # TODO : check child exit status and raise JRubyExecError
       Process.detach(@pid)
@@ -61,19 +60,29 @@ A Ruby-managed JRuby application.
     end
 
     def self.stop
-      service_send :stop
+      new_drb_object.stop
+    end
+
+    def stop
+      DRb.stop_service
     end
 
     # Replace current process with JRuby running JRubyBridge::Service
     def self.exec(port)
-      jruby = get_jruby
-      command = "#{jruby} #{DAEMON} #{port || ''}"
-      puts "Running #{command}"
-      Kernel.exec command if jruby
+      unless jruby = get_jruby
+        # Note: a raised exception goes nowhere: instead use exit status
+        $stderr.puts "No JRuby found!"
+        return 1
+      end
 
-      # Note: a raised exception goes nowhere: instead use exit status
-      $stderr.puts "No JRUBY found!"
-      return 1
+      command = [
+        jruby,
+        @remote_requires.map { |path| %Q(-r"#{path}") },
+        DAEMON,
+        port
+      ].compact.join(' ')
+
+      Kernel.exec command
     end
 
     # Called by the server script in JRuby context
@@ -82,9 +91,9 @@ A Ruby-managed JRuby application.
 
       DRb.start_service "druby://localhost:#{port.to_i}", self.new
 
-      cls = self
-      trap('HUP') { DRb.stop_service; cls.drb_start(port) }
-      trap('INT') { puts 'Stopping jruby service'; DRb.stop_service }
+      _self = self
+      trap('HUP') { DRb.stop_service; _self.drb_start(port) }
+      trap('INT') { DRb.stop_service }
 
       DRb.thread.join
     end
@@ -109,17 +118,8 @@ A Ruby-managed JRuby application.
       "rvm #{jruby.strip.split(' ').first} do ruby "
     end
 
-    # this will return a new DRuby connection
-    def self.service_send(method, *args)
-      begin
-        new_drb_object.tap { |obj| obj.send(method, *args) }
-      rescue DRb::DRbConnError => e
-        # $stderr.puts e.backtrace.join("\n")
-        raise DRbConnectionError.new(e.message)
-      end
-    end
-
     def self.new_drb_object
+      # This returns a proxied instance of Service
       DRb::DRbObject.new_with_uri(default_uri)
     end
 
