@@ -1,8 +1,9 @@
-# jruby_bridge
+# jruby-bridge
 
-`jruby_bridge` proxies chunks of ruby code through to JRuby DRB Server and fetches the results.
+`jruby-bridge` lets you create objects within MRI Ruby that have all their execution performed in a JRuby context.
+To do this it uses a JRuby DRb service process. Objects passed by reference to method calls are transparently marshalled and executed within the JRuby service, and the results are passed back. Procs are executed in the context they're defined in.
 
-This is useful for situations like having to plug your freshly minted Ruby app into some godawful legacy enterprise database, or other scenarios laced with java (we nearly called this barge_pole).
+This can be used to add commercial jdbc database support and other JRuby accessible tech to MRI-based projects without having to change much.
 
 Based on, and forked from https://github.com/mkfs/jruby-bridge
 "See http://entrenchant.blogspot.com/2012/07/drb-jruby-bridge.html for full discussion."
@@ -11,7 +12,7 @@ Based on, and forked from https://github.com/mkfs/jruby-bridge
 
 Add this line to your application's Gemfile:
 
-    gem 'jruby_bridge'
+    gem 'jruby-bridge'
 
 And then execute:
 
@@ -19,25 +20,17 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install jruby_bridge
+    $ gem install jruby-bridge
 
-Then pat a kitten :tiger:
+Pat a kitten.
 
 ## Usage by Example
 
 ```ruby
-require 'jruby_bridge'
+require 'jruby-bridge'
 
 # Make sure JRuby has the right classes loaded
 JRubyBridge::Service.remote_require 'kittens', 'puppies'
-
-# Or, if you've got a Rails stack you want loaded, you could use the
-# following code in an initializer to make sure JRuby has access to all
-# your classes.
-#
-# # config/initializers/jruby_bridge.rb
-# JRubyBridge::Service.remote_require File.dirname(__FILE__) + '/../environment'
-
 
 # Start the JRuby service process
 JRubyBridge::Service.with_service do
@@ -71,7 +64,8 @@ JRubyBridge::Service.stop
 1. Ahh, some tests?
 2. Convince the Enterprise to stop using commercial databases
 3. Lazy-launching of the service process
-4. Timeouts on the service process?
+4. Hearbeat signal with auto-shutdown of service process
+5. Proxy signals to the service
 
 ## Contributing
 
