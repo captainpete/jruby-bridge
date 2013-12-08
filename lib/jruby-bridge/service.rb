@@ -83,7 +83,7 @@ A Ruby-managed JRuby application.
       command = [
         jruby,
         remote_requires.map { |path| %Q(-r"#{path}") },
-        DAEMON,
+        "\"#{DAEMON}\"",
         port
       ].compact.join(' ')
 
