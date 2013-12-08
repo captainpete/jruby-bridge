@@ -87,6 +87,7 @@ A Ruby-managed JRuby application.
         port
       ].compact.join(' ')
 
+      puts "Running: #{command}"
       Kernel.exec command
     end
 
