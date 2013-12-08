@@ -1,14 +1,14 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'jruby_bridge/version'
+require 'jruby-bridge/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "jruby_bridge"
+  spec.name          = "jruby-bridge"
   spec.version       = JrubyBridge::VERSION
   spec.authors       = ["mkfs", "Peter Hollows"]
-  spec.email         = ["peter.hollows@gmail.com"]
-  spec.description   = %q{jruby_bridge proxies chunks of ruby code through to JRuby DRB Server and fetches the results.}
+  spec.email         = ["gems@dojo7.com"]
+  spec.description   = %q{jruby-bridge proxies chunks of ruby code through to JRuby DRB Server and fetches the results.}
   spec.summary       = spec.description
   spec.homepage      = ""
   spec.license       = "MIT"

@@ -1,4 +1,4 @@
-require 'jruby_bridge/service'
+require 'jruby-bridge/service'
 
 module JRubyBridge
 
