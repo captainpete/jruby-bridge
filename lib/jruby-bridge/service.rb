@@ -29,6 +29,10 @@ A Ruby-managed JRuby application.
       @remote_requires = args
     end
 
+    def self.remote_requires
+      @remote_requires ||= []
+    end
+
     def self.with_service(&block)
       start
       yield
@@ -78,7 +82,7 @@ A Ruby-managed JRuby application.
 
       command = [
         jruby,
-        @remote_requires.map { |path| %Q(-r"#{path}") },
+        remote_requires.map { |path| %Q(-r"#{path}") },
         DAEMON,
         port
       ].compact.join(' ')
